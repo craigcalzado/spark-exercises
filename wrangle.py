@@ -19,17 +19,15 @@ def calls_311_wrangle():
     # Rename the columns
     case = case.withColumnRenamed('SLA_due_date', 'case_due_date')
     # ser column to boolean
-    case = case.withColumn('case_closed', expr('case_closed == "YES"')
-                           .withColumnRenamed('case_late', expr('case_late == "YES"'))
-                            )
+    case = case.withColumn('case_closed', expr('case_closed == "YES"')).withColumn('case_late', expr('case_late == "YES"'))
     # conver counsil_distric to string
     case = case.withColumn('council_district', col('council_district').cast('string'))
     # convert datetime
     fmt = 'M/d/yy H:mm'
     # convert case_closed_date and case_open_date to datetime
-    case = case.withColumn('case_closed_date', to_timestamp('case_closed_date', fmt)
-                           .withColumnRenamed('case_opened_date', 'case_opened_date_datetime', fmt)
-                           .withColumnRenamed('case_due_date', 'case_due_date_datetime', fmt))
+    case = case.withColumn('case_closed_date', to_timestamp('case_closed_date', fmt))\
+                           .withColumn('case_opened_date', to_timestamp('case_opened_date', fmt))\
+                           .withColumn('case_due_date', to_timestamp('case_due_date', fmt))
                            
     # lowercase
     case = case.withColumn('request_address', trim(lower(case.request_address)))
@@ -38,20 +36,19 @@ def calls_311_wrangle():
     # create new column for zipcode
     case = case.withColumn('zipcode', regexp_extract(case.request_address, r"(\d+$)", 1))
     # create new columns case_age, days_to_closed, and case_lifetime
-    case =(
+    case = (
             case.withColumn(
-                            'case_age', datediff(current_timestamp(), 'case_opened_date')
+                            "case_age", datediff(current_timestamp(), "case_opened_date")
                             )
-                           .withColumn(
-                            'days_to_closed', datediff('case_closed_date', 'case_opened_date')
+                .withColumn(
+                            "days_to_closed", datediff('case_closed_date', "case_opened_date")
                             )
-                           .withcolumn(
-                               'case_lifetime', 
-                               when(expr("! case_closed"), col("case_age")).otherwise(
-                                   col("days_to_closed")
-                                ),
+                .withColumn(
+                            "case_lifetime", 
+                            when(expr("! case_closed"), col("case_age"))
+                            .otherwise(col("days_to_closed")),
                             )
-                        )
+            )
     # join the data
     df = (case
         .join(dept, on='dept_division', how='left')
@@ -62,4 +59,3 @@ def calls_311_wrangle():
         .withColumn('dept_subject_to_SLA', col('dept_subject_to_SLA') == 'YES')
     )
     return df
-    
